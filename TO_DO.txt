@@ -1,0 +1,11 @@
+To Do:
+
+ Update .DAT files
+ Modify .TPL to allow to not fit last year of survey data (this might not be a problem--just specify the end year as 2020, then have survey data to 2019)
+ Quantify uncertainty somehow from leaving one year out
+ Finish PSC document
+
+
+ Comparison between GMACS and status quo
+ GMACS alternate versions
+ 
