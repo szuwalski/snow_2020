@@ -52,8 +52,8 @@ ABC_buffer  <-0.8
 
 
 #===PULL gmacs DATA AND outputs
-mod_names <- c("GMACS")
-.MODELDIR = c("./20_snow_gmacs/")
+mod_names <- c("GMACS_rbar")
+.MODELDIR = c("./19_snow_gmacs_rbar/")
 .THEME    = theme_bw(base_size = 12, base_family = "") +
   theme(strip.text.x = element_text(margin= margin(1,0,1,0)),
         panel.grid.major = element_blank(), 
@@ -80,7 +80,7 @@ chosen_ind<-1
 
 #===============
 # directory in which all of the scenario folder reside and names of the scenario folders
-Scenarios   <-c("20_sq_model","20_sq_model")
+Scenarios   <-c("19_sq_model","19_sq_model")
 ScenarioNames<-c("Status quo",mod_names)
 
 #==make a list of the scenario names
@@ -230,7 +230,7 @@ for(x in 1:length(Scenarios))
  proj_Status<-mle_Status2
  
 
- names(M[[1]])
+
  
  
 
@@ -865,26 +865,26 @@ LagRecs<-rep(5,length(Scenarios))
 
 ymax<-max(snowad.rep[[1]]$"estimated number of recruits male"/10000,M[[1]]$recruits[1,]/10000)
 ymax<-1000
-plot(snowad.rep[[1]]$"estimated number of recruits male"/10000~SurveyYrs[[1]][1:length(SurveyYrs[[1]])],ylab="",type="l",
+plot(snowad.rep[[1]]$"estimated number of recruits male"/10000~SurveyYrs[[1]][1:(length(SurveyYrs[[1]])-1)],ylab="",type="l",
      las=1,xlab="",ylim=c(0,ymax),col=2,xaxt='n')
 for(x in 1:length(M))
-  lines(M[[x]]$recruits[1,]/10000~SurveyYrs[[1]],col=2,lty=x+1)
+  lines(M[[x]]$recruits[1,]/10000~SurveyYrs[[1]][-length(SurveyYrs[[1]])],col=2,lty=x+1)
 
 ymax<-max(snowad.rep[[1]]$"estimated number of recruits female"/10000,M[[1]]$recruits[2,]/10000)
 ymax<-2000
-plot(snowad.rep[[1]]$"estimated number of recruits female"/10000~SurveyYrs[[1]][1:length(SurveyYrs[[1]])],ylab="",type="l",
+plot(snowad.rep[[1]]$"estimated number of recruits female"/10000~SurveyYrs[[1]][1:(length(SurveyYrs[[1]])-1)],ylab="",type="l",
      las=1,xlab="",ylim=c(0,ymax),col=4,xaxt='n')
 for(x in 1:length(M))
-  lines(M[[x]]$recruits[2,]/10000~SurveyYrs[[1]],col=4,lty=x+1)
+  lines(M[[x]]$recruits[2,]/10000~SurveyYrs[[1]][-length(SurveyYrs[[1]])],col=4,lty=x+1)
 
 
  mtext(side=2,"Recruits (10000)",line=3,outer=T,adj=.58)
  legend("topleft",bty='n',col=c(2,4),legend=c('males','females'),pch=15)
 
- plot((snowad.rep[[1]]$"estimated number of recruits male"/10000) / (snowad.rep[[1]]$"estimated number of recruits female"/10000) ~SurveyYrs[[1]][1:length(SurveyYrs[[1]])],ylab="",type="l",
+ plot((snowad.rep[[1]]$"estimated number of recruits male"/10000) / (snowad.rep[[1]]$"estimated number of recruits female"/10000) ~SurveyYrs[[1]][1:(length(SurveyYrs[[1]])-1)],ylab="",type="l",
      las=1,xlab="",ylim=c(0,5),col=1)
 for(x in 1:length(M))
- lines((M[[x]]$recruits[1,]/10000)  /(M[[x]]$recruits[2,]/10000)~SurveyYrs[[1]],col=1,lty=x+1)
+ lines((M[[x]]$recruits[1,]/10000)  /(M[[x]]$recruits[2,]/10000)~SurveyYrs[[1]][-length(SurveyYrs[[1]])],col=1,lty=x+1)
 mtext(side=2,"Male recruits / Female recruits",line=2.5,cex=.7)
 abline(h=1,lty=3)
 
@@ -1376,7 +1376,7 @@ plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"bserved Prop industry survey fe
 x<-1
  lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"Predicted Prop industry survey female"),lty=x,col=2);
 for(x in 1:length(M))
- lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_10[2,]),lty=x+1,col=2); 
+ lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_14[2,]),lty=x+1,col=2); 
 
 par(new=T)
 
@@ -1384,7 +1384,7 @@ plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"Observed Prop industry survey m
 x<-1
    lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"Predicted Prop industry survey male"),lty=x,col=4);
 for(x in 1:length(M))
-   lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_10[1,]),lty=x+1,col=4); 
+   lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_14[1,]),lty=x+1,col=4); 
 legend("topleft",bty='n',"Industry 2009")
 
 #=========================================================================
@@ -1392,7 +1392,7 @@ plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"Observed Prop industry nmfs sur
 x<-1
  lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"Predicted Prop industry nmfs survey female"),lty=x,col=2);
 for(x in 1:length(M))
- lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_11[2,]),lty=x+1,col=2); 
+ lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_15[2,]),lty=x+1,col=2); 
 
 par(new=T)
 
@@ -1400,7 +1400,7 @@ plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"Observed Prop industry nmfs sur
 x<-1
    lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"redicted Prop industry nmfs survey male"),lty=x,col=4);
 for(x in 1:length(M))
-   lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_11[1,]),lty=x+1,col=4); 
+   lines(LengthBins[[x]],make_sum_1(M[[x]]$d3_pre_size_comps_15[1,]),lty=x+1,col=4); 
 legend("topleft",bty='n',"NMFS 2009")   
    
  legend("topright",bty='n',lty=seq(1,length(M)+1),legend=ScenarioNames)
@@ -1409,28 +1409,28 @@ legend("topleft",bty='n',"NMFS 2009")
 plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"Observed Prop 2010 industry survey female"),ylim=c(0,setYlim),ylab="",pch=15,las=1,col=2)
 x<-1
  lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"Predicted Prop 2010 industry survey female"),lty=x,col=2);
- lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_12[2,]),lty=2,col=2); 
+ lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_16[2,]),lty=2,col=2); 
 
 par(new=T)
 
 plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"Observed Prop 2010 industry survey male"),xaxt='n',ylab="",ylim=c(0,setYlim),pch=16,col=4,yaxt='n',xaxt='n')
 x<-1
    lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"Predicted Prop 2010 industry survey male"),lty=x,col=4);
-   lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_12[1,]),lty=2,col=4); 
+   lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_16[1,]),lty=2,col=4); 
 legend("topleft",bty='n',"Industry 2010")   
    
 #=========================================================================
 plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"Observed Prop 2010 industry nmfs survey female"),ylim=c(0,setYlim),ylab="",pch=15,las=1,yaxt='n',col=2)
 x<-1
  lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"Predicted Prop 2010 industry nmfs survey female"),lty=x,col=2);
- lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_13[2,]),lty=2,col=2); 
+ lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_17[2,]),lty=2,col=2); 
 
 par(new=T)
 
 plot(LengthBins[[1]],make_sum_1(snowad.rep[[1]]$"Observed Prop 2010 industry nmfs survey male"),xaxt='n',ylab="",ylim=c(0,setYlim),pch=16,col=4,yaxt='n')
 x<-1
    lines(LengthBins[[x]],make_sum_1(snowad.rep[[x]]$"Predicted Prop 2010 industry nmfs survey male"),lty=x,col=4);
-   lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_13[1,]),lty=2,col=4); 
+   lines(LengthBins[[x]],make_sum_1(M[[1]]$d3_pre_size_comps_17[1,]),lty=2,col=4); 
 legend("topleft",bty='n',"NMFS 2010")   
    
    
@@ -1478,7 +1478,12 @@ for(x in 1:length(Scenarios))
  inPred[[x]]<-sweep(tmp,1,tots,"/")
 }
 
-inPred[[x]]<-rbind(M[[1]]$d3_pre_size_comps_6,M[[1]]$d3_pre_size_comps_7)
+
+
+inPred[[x]]<-
+  tmp<-rbind(M[[1]]$d3_pre_size_comps_6,M[[1]]$d3_pre_size_comps_7)
+
+ tmp2<-rbind(M[[1]]$d3_pre_size_comps_10,M[[1]]$d3_pre_size_comps_11)
 
 PlotLenProps(obs = obs,
              pred =inPred,
@@ -1559,8 +1564,11 @@ par(mfrow=c(1,1),mar=c(.1,.1,.3,.1),oma=c(4,4,1,1))
 plot(snowad.rep[[1]]$"Mature male biomass at mating"[1:(SurvYrN[[1]])]~SurveyYrs[[1]],type="l",ylim=c(0,400),las=1,col=4)
 legend("topright",bty='n',lty=seq(1,length(M)+1),legend=ScenarioNames,col=c("blue",rep(1,length(M))))
 for(x in 1:length(M))
-lines(M[[x]]$ssb~SurveyYrs[[1]],lty=x+1)
+lines(M[[x]]$ssb~SurveyYrs[[1]][-length(SurveyYrs[[1]])],lty=x+1)
 mtext(side=2,"Mature biomass (1000t)",line=2.5)
+
+abline(h=M[[1]]$spr_bmsy,lty=3)
+abline(h=B35[[1]],col='blue',lty=3)
 
 
 
@@ -1968,4 +1976,45 @@ geom_bar(stat="identity", position=position_dodge()) +
 
 
 ```
+
+\newpage
+
+```{r,echo=FALSE,warning=FALSE,message=F}
+
+
+PlotTab<- data.frame(Model=ScenarioNames,
+                     MMB=rep(0,length(ScenarioNames)),
+                     B35=rep(0,length(ScenarioNames)),
+                     F35=rep(0,length(ScenarioNames)),
+                     FOFL=rep(0,length(ScenarioNames)),
+                     OFL=rep(0,length(ScenarioNames)), 
+                     Status=rep(0,length(ScenarioNames)))
+                     
+x<-1
+   PlotTab$MMB[x]<-MMB[[x]]
+   PlotTab$B35[x]<-B35[[x]]
+   PlotTab$F35[x]<-F35[[x]]
+   PlotTab$FOFL[x]<-FOFL[[x]]
+   PlotTab$OFL[x]<-OFL[[x]]
+   PlotTab$Status[x]<-Status[[x]]
+
+for(x in 2:length(ScenarioNames))
+{
+   PlotTab$MMB[x]<-M[[x-1]]$ssb[length(M[[x-1]]$ssb)]
+   PlotTab$B35[x]<-M[[x-1]]$spr_bmsy
+   PlotTab$F35[x]<-M[[x-1]]$sd_fmsy
+   PlotTab$FOFL[x]<-M[[x-1]]$sd_fofl[1]
+   PlotTab$OFL[x]<-M[[x-1]]$spr_cofl
+   PlotTab$Status[x]<- PlotTab$MMB[x-1]/PlotTab$B35[x-1]
+}
+
+
+rownames(PlotTab)<- NULL
+PlotTab[,c(2:6)]<-round(PlotTab[,c(2:6)],2)
+kable(PlotTab[,1:6],split.cells=c(25,rep(7,5)),justify=c("left",rep("center",5)),caption="\\label{stepchange}Changes in management quantities for each scenario considered. Reported management quantities are derived from maximum likelihood estimates.")
+
+
+```
+
+\newpage
 

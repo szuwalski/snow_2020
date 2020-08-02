@@ -1,5 +1,11 @@
 To Do:
 
+ Make document comparing 2019 assessment with GMACS
+ Choose GMACS?
+ Modify GMACS to get projections under FOFL
+ Explore retrospective code in GMACS
+ Make document
+
  Update .DAT files
  Modify .TPL to allow to not fit last year of survey data (this might not be a problem--just specify the end year as 2020, then have survey data to 2019)
  Quantify uncertainty somehow from leaving one year out
@@ -7,5 +13,24 @@ To Do:
 
 
  Comparison between GMACS and status quo
+ GMACS projections
  GMACS alternate versions
  
+Fix the survey len comp plots
+
+Kobe plots
+
+Make the sex ratio make more sense
+If you do not, females are way high
+Then the recruitment you get is way high
+Then reference points are way high
+
+Code to adjust years entered into .proj for retrospective down if they exceed retroyr
+
+Story:
+ getting reference poitns to work
+ Timing of calculation
+ Natural mortality
+ Recruitment
+
+

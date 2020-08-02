@@ -1,0 +1,489 @@
+---
+author: "Cody Szuwalski"
+date: "July 2020"
+output:
+  pdf_document:
+    fig_caption: yes
+    fig_height: 4
+    fig_width: 6
+header-includes:   
+-  \pagenumbering{gobble}
+number_sections: yes
+csl: fish-and-fisheries.csl
+toc: no
+title: "Simulation of the effects of changes in snow crab bycatch in the groundfish fisheries on management quantities"
+---
+
+```{r, include=FALSE}
+
+knitr::opts_chunk$set(echo=FALSE,message=FALSE,warning=FALSE)
+
+library(plyr)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(PBSmodelling)
+library(pander)
+library(coda)
+library(maps)
+library(lattice)
+library(PBSmapping)
+library(mapdata)    #some additional hires data
+library(maptools)   #useful tools such as reading shapefiles
+library(mapproj)
+library(plotrix)
+library(tinytex)
+
+in_path<-"C:/gmacs/gmr/R/"
+#library(miceadds)
+library(ggridges)
+library(reshape2)
+#source.all( path=in_path, grepstring="\\.R",  print.source=TRUE, file_sep="__"  )
+
+
+```
+
+\newpage
+
+
+```{r,echo=F,message=FALSE,warning=F,include=FALSE}
+
+survey_fig_N<-7
+ABC_buffer  <-0.8
+
+chosen_model<-"opilio"
+chosen_ind<-1
+
+#===============
+# directory in which all of the scenario folder reside and names of the scenario folders
+Scenarios   <-c("sq_model_modify","sq_model_modify_1.5","sq_model_modify_2","sq_model_modify_10")
+ScenarioNames<-c("Status quo","1.5x bycatch","2x bycatch","10x bycatch")
+
+#==make a list of the scenario names
+##==save all of the output from the scenarios
+snowad.rep<-rep(list(list()),length(Scenarios))
+CatchYrN<-rep(list(list()),length(Scenarios))
+SurvYrN<-rep(list(list()),length(Scenarios))
+DiscYrFN<-rep(list(list()),length(Scenarios))
+DiscYrMN<-rep(list(list()),length(Scenarios))
+TrawlYrN<-rep(list(list()),length(Scenarios))
+ObsCatchNumbers<-rep(list(list()),length(Scenarios))
+ObsCatchPounds<-rep(list(list()),length(Scenarios))
+RetCatchYrs<-rep(list(list()),length(Scenarios))
+TotCatchYrs<-rep(list(list()),length(Scenarios))
+ObsDiscF<-rep(list(list()),length(Scenarios))
+ObsDiscM<-rep(list(list()),length(Scenarios))
+TrawlBycatch<-rep(list(list()),length(Scenarios))
+SurveyNumbers<-rep(list(list()),length(Scenarios))
+SurveyYrs<-rep(list(list()),length(Scenarios))
+LengthBins<-rep(list(list()),length(Scenarios))
+GrowthNfem<-rep(list(list()),length(Scenarios))
+GrowthNm<-rep(list(list()),length(Scenarios))
+GrowthData<-rep(list(list()),length(Scenarios))
+
+REPfileEnd<-rep(list(list()),length(Scenarios))
+MgmtQuants<-rep(list(list()),length(Scenarios))
+
+# names(snowad.rep[[ChosenInd]])
+# snowad.rep[[ChosenInd]]$"Predicted probability of maturing female" 
+# snowad.rep[[ChosenInd]]$"Predicted probability of maturing male" 
+
+for(x in 1:length(Scenarios))
+{
+  snowad.rep[[x]]  <-readList(paste(Scenarios[x],"/R_input.txt",sep=""))
+
+DATfile <-readLines(paste(Scenarios[x],"/2016sc.DAT",sep=""))
+
+# length of data types
+tmp<-grep("number of years of retained fishery data",DATfile)
+CatchYrN[[x]] <-as.numeric(DATfile[tmp+1])
+tmp<-grep("number of years of survey data",DATfile)
+SurvYrN[[x]] <-as.numeric(DATfile[tmp+1])
+tmp<-grep("number of years of fishery discard",DATfile)
+DiscYrFN[[x]] <-as.numeric(DATfile[tmp+1])
+tmp<-grep("number of years of fishery male discard",DATfile)
+DiscYrMN[[x]] <-as.numeric(DATfile[tmp+1])
+tmp<-grep("number of years of trawl discard",DATfile)
+TrawlYrN[[x]] <-as.numeric(DATfile[tmp+1])
+
+# observed retained catch
+tmp<-grep("retained catch in numbers",DATfile)
+ObsCatchNumbers[[x]]<-as.numeric(DATfile[(tmp+1):(tmp+CatchYrN[[x]])])[1:CatchYrN[[x]]]
+tmp<-grep("retained catch in pounds",DATfile)
+ObsCatchPounds[[x]]<-as.numeric(DATfile[(tmp+1):(tmp+CatchYrN[[x]])])[1:CatchYrN[[x]]]
+tmp<-grep("years for fishery data",DATfile)
+RetCatchYrs[[x]]<-as.numeric(unlist(strsplit(DATfile[(tmp+1)],split=" ")))
+RetCatchYrs[[x]]<-RetCatchYrs[[x]][!is.na(RetCatchYrs[[x]])]
+
+tmp<-grep("years when have fishery discard length data",DATfile)
+TotCatchYrs[[x]]<-as.numeric(unlist(strsplit(DATfile[(tmp+1)],split=" ")))
+TotCatchYrs[[x]]<-TotCatchYrs[[x]][!is.na(TotCatchYrs[[x]])]
+
+# observed discard
+tmp<-grep("Discard Catch from observer",DATfile)
+ObsDiscF[[x]]<-as.numeric(DATfile[(tmp+2):(tmp+1+CatchYrN[[x]])])[1:CatchYrN[[x]]]
+tmp<-grep("discard catch males",DATfile)
+ObsDiscM[[x]]<-as.numeric(DATfile[(tmp+1):(tmp+CatchYrN[[x]])])[1:CatchYrN[[x]]]
+
+# observed trawl
+tmp<-grep(" bycatch numbers by geartype",DATfile)
+TrawlBycatch[[x]]<-as.numeric(DATfile[(tmp+2):(tmp+1+CatchYrN[[x]])])[1:CatchYrN[[x]]]
+
+# survey numbers
+tmp<-grep("survey numbers by year",DATfile)
+SurveyNumbers[[x]]<-as.numeric(DATfile[(tmp+1):(tmp+SurvYrN[[x]])])
+tmp<-grep("years for survey data",DATfile)
+SurveyYrs[[x]]<-na.omit(as.numeric(unlist(strsplit(DATfile[(tmp+1)],split=" "))))
+
+tmp<-grep("length bins",DATfile)[[5]]
+LengthBins[[x]]<-as.numeric(unlist(strsplit(DATfile[(tmp+1)],split=" ")))
+LengthBins[[x]]<-LengthBins[[x]][!is.na(LengthBins[[x]])]
+
+tmp       <-grep("growth data female",DATfile)
+GrowthNfem[[x]]<-as.numeric(DATfile[(tmp+1)])
+tmp1      <-grep("growth data male",DATfile)
+GrowthNm[[x]]  <-as.numeric(DATfile[(tmp1+1)])
+GrowthData[[x]]<-matrix(NA,ncol=4,nrow=max(GrowthNm[[x]],GrowthNfem[[x]]))
+
+GrowthData[[x]][1:GrowthNfem[[x]],1] <-na.omit(as.numeric(unlist(strsplit(DATfile[(tmp+2)],split="\t"))))
+GrowthData[[x]][1:GrowthNfem[[x]],2] <-na.omit(as.numeric(unlist(strsplit(DATfile[(tmp+3)],split="\t"))))
+
+GrowthData[[x]][1:GrowthNm[[x]],3]  <-na.omit(as.numeric(unlist(strsplit(DATfile[(tmp1+2)],split="\t"))))
+GrowthData[[x]][1:GrowthNm[[x]],4] <-na.omit(as.numeric(unlist(strsplit(DATfile[(tmp1+3)],split="\t"))))
+
+#==pulling MLEs for management quantities
+for(x in 1:length(Scenarios))
+{
+  REPfileEnd[[x]]       <-readLines(paste(Scenarios[x],"/2016sc.REP",sep=""))
+  MgmtQuants[[x]]       <-as.numeric(unlist(strsplit(as.character(REPfileEnd[[x]][1]),split=" ")))
+  MgmtQuants[[x]]$Status<-as.numeric(MgmtQuants[[x]][5])/as.numeric(MgmtQuants[[x]][2])
+  names(MgmtQuants[[x]])<-c("F","BMSY","Surv_MMB","Fish_MMB","Mate_MMB","F35","FOFL","OFL","Status")
+  }
+}
+
+TakeDir     <-"C:/SnowCrab2020/psc_exercise/"
+
+ 
+#==MLE stuff
+#==set up storage
+  mle_B35<-list()
+  mle_F35<-list()
+  mle_FOFL<-list()
+  mle_OFL<-list()
+  mle_MMB<-list()
+  mle_projMMB<-list()
+  mle_ABC<-list()
+  mle_Status<-list()
+  mle_Status2<-list()
+  mle_allMMB<-list()
+
+  #==CHECK THIS  
+for(x in 1:length(Scenarios))
+{  
+ REPfile <-readLines(paste(TakeDir,Scenarios[x],"/2016sc.REP",sep=""))
+ temp <-as.numeric(unlist(strsplit(REPfile[1],split=" ")))
+ temp <-temp[!is.na(temp)]
+ mle_B35[[x]] <-temp[2]
+ mle_F35[[x]] <-temp[6]
+ mle_FOFL[[x]]<-temp[7]
+ mle_OFL[[x]] <-temp[8]
+ mle_MMB[[x]] <-temp[5]    
+ mle_ABC[[x]]<-mle_OFL[[x]]*ABC_buffer
+ mle_Status[[x]]<-mle_MMB[[x]]/mle_B35[[x]]
+
+ mle_projMMB[[x]]<-snowad.rep[[x]]$"Mature male biomass at mating"[SurvYrN[[x]]]
+ mle_allMMB[[x]]<-snowad.rep[[x]]$"Mature male biomass at mating"
+ mle_Status2[[x]]<-mle_projMMB[[x]]/ mle_B35[[x]]
+   
+}
+  
+ B35<-mle_B35
+ F35<-mle_F35
+ FOFL<-mle_FOFL
+ OFL<-mle_OFL
+ MMB<-mle_MMB    
+ ABC<-mle_ABC
+ Status<-mle_Status 
+ projMMB<-mle_projMMB
+ proj_Status<-mle_Status2
+
+```
+
+\newpage
+# Introduction
+
+Sarah Marrinan and Sara Cleaver (North Pacific Fishery Management Council staff) presented information to the Crab Plan Team at its May 2020 meeting on a proposed Council action to change crab PSC (Prohibited Species Catch) limits in the groundfish fisheries to the lowest possible level when the directed crab fishery is closed. There are currently area PSC limits in place for Bristol Bay red king crab, Tanner crab, and snow crab for groundfish vessels using trawl gear. The current limits are rarely exceeded, and even if they were set at the lowest level would rarely be constraining. Council staff asked the CPT about the importance of bycatch in crab population dynamics. Currently there is very little crab bycatch in groundfish fisheries compared to the directed fisheries. However, it was noted that there is very little information on the unobserved mortality of crab species. Thus, Council staff asked if assessment authors could examine the effects of increased bycatch on model results. Consequently, the Crab Plan Team (CPT) requested at its May 2020 meeting that:
+
+"Assessment authors should rerun the assessments for BBRKC, Tanner crab, and snow crab with higher assumed levels of bycatch abundance (increases of 50% and 100%) as a sensitivity analysis. These should be provided to Council staff within the next two months for inclusion in the October Council document." 
+
+This report addresses this request for snow crab.
+
+# Methods
+
+The methodology implemented here departs slightly from what the CPT requested. The model was rerun with three bycatch scenarios in which the entire time series of historical bycatch was 50%, 100%, and 1000% larger than historical estimates. In these simulations, all parameters governing biological processes (e.g. recruitment, natural mortality, growth, maturity) were specified to the values estimated in the 2019 assessment. Parameters governing fisheries selectivity were also fixed. Fishing mortality associated with the directed fishery, discards in the directed fishery and bycatch were the only parameters estimated when the model was rerun. All fishing mortalities were estimated to ensure that all input data sources of catch could be fit.  Selectivities were not changed because changes in the selectivities can result in changes in the fishing mortality reference points. 
+
+# Results
+
+Increases in bycatch resulted in a general scaling down of estimated mature male biomass (MMB) at the time of the survey (\autoref{mmbfits}). Females were not affected because the selectivity of the bycatch 'fleet' in the model generally excludes them from mortality (\autoref{predfmort}). Estimated bycatch fishing mortality increased predictably with increases in the input bycatch (\autoref{predfmort}). Notably, the estimated directed fishing mortality also increased when bycatch mortality increased (most drastically for the 1000% increase), which suggests some degree of confounding between estimated fishing mortality in the directed fishery and bycatch mortality.
+
+The translation of these changes to most management quantities was also predictable (\autoref{stepchange}). Terminal year MMB decreased with increasing bycatch. B~35%~ did not change because the biological processes determining it were fixed. F~35%~ decreased as bycatch levels increased because the variable portion F~35%~ is only related to the directed fishery--discard and bycatch are specified as the average fishing mortalities for each process in the projections that calculate the reference points. As the 'expected' bycatch increases (which is determined by input levels in the scenarios presented), the fishing mortality allowed in the directed fishery has to decrease to compensate in calculations of F~35%~.
+
+The changes in the overfishing level (OFL) were less intuitive. As bycatch increased, the OFL also increased. The OFL is calculated as the sum of the retained catch and mortality associated with discards in the directed fishery and bycatch elsewhere.  So, the decreases in the retained portion of the OFL resulting from decreases in the F~OFL~ were outpaced by the increases in the portion of the OFL allocated to bycatch.
+
+An explanation for increases in the OFL with increases in bycatch relates to the selectivity of the bycatch--a fraction of the bycatch is not mature (\autoref{predfmort}). The harvest control rule only considers MMB when calculating the F~OFL~, but the F allocated for bycatch is fixed and does not consider the amount of MMB (or immature biomass) available. So, as the F allocated to bycatch increases, increases in the contribution of bycatch to the OFL that is immature are possible. Increases in the amount of immature crab caught do not impact the MMB, so the OFL can increase as bycatch increases without impacting the 'status' of the fishery. This issue could be exacerbated by the large recruitment class coming through the population.
+
+# Discussion
+
+Based on these analyses, if a fraction of bycatch mortality has been unobserved and unaccounted for in the assessment, this would unsurprisingly have had the biggest impact during the period when bycatches were largest (e.g. the mid 1990s through the mid 2010s). In the most recent years, bycatch has been small enough that inputting even 10 times the amount of bycatch reported resulted in only a ~2% change in the terminal year of MMB. Given the manner in which the OFL increases with increasing bycatch, it might be useful to reconsider how immature bycatch is treated in the harvest control rule, particularly if bycatch was much higher than they have been in the recent past. However, the impact of this issue when bycatch levels are low (as they have been) is negligible. 
+
+
+\newpage
+
+```{r,echo=FALSE,warning=FALSE,message=F,fig.width=6.5,fig.height=6,fig.cap="\\label{mmbfits}Model fits to the observed mature biomass at survey"}
+
+# BSFRF F, BSFRF M, NMFS F, NMFS M
+study2010_cv<-c(0.19,0.13,0.29,0.21)
+study2009_cv<-c(1.64,.46,1.79,.32)
+
+##=======FITS TO THE DATA SOURCES=========================
+#==mature male biomass==============
+par(mar=c(.1,.1,.3,.1),oma=c(4,4,1,1))
+layout(matrix(c(1,1,1,2,3,3,3,4),nrow=2,byrow=T))
+par(mar=c(.1,.1,.3,.1),oma=c(4,4,1,4))
+
+plot(as.numeric(unlist(snowad.rep[[2]]$"Observed survey male spawning biomass"))[1:SurvYrN[[2]]]~na.omit(SurveyYrs[[2]]),
+     pch=20,ylab="Mature Male Biomass (1000 t)",
+     xlab="Year",las=1,ylim=c(0,600),
+     xaxt='n');
+
+for(j in 1:length(SurveyYrs[[2]]))
+{
+ segments(x0=SurveyYrs[[2]][j],x1=na.omit(SurveyYrs[[2]])[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed survey male spawning biomass"))[j]  /   exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[2,]^2)))[j],
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed survey male spawning biomass"))[j] * exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[2,]^2)))[j])
+}
+
+#axis(side=1,las=1)
+
+
+for(x in 1:length(Scenarios))
+# for(x in 1:2)
+  lines(as.numeric(unlist(snowad.rep[[x]]$"Predicted Male survey mature Biomass"))[1:SurvYrN[[x]]]~na.omit(SurveyYrs[[x]]),type="l",lty=x,lwd=1)
+legend("topleft",bty='n',"Males")
+
+
+#==NOW PLOT SUBSET
+plot(as.numeric(unlist(snowad.rep[[2]]$"Observed survey male spawning biomass"))[27:30]~na.omit(SurveyYrs[[2]][27:30]),
+     pch=20,ylab="Mature Male Biomass (1000 t)",
+     xlab="Year",las=1,ylim=c(0,300),
+     xaxt='n',yaxt='n')
+axis(side=4,las=1)
+
+for(j in 1:length(SurveyYrs[[2]]))
+{
+ segments(x0=SurveyYrs[[2]][j],x1=na.omit(SurveyYrs[[2]])[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed survey male spawning biomass"))[j]  /   exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[2,]^2)))[j],
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed survey male spawning biomass"))[j] * exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[2,]^2)))[j])
+}
+
+for(x in 1:length(Scenarios))
+# for(x in 1:2)
+  lines(as.numeric(unlist(snowad.rep[[x]]$"Predicted Male survey mature Biomass"))[1:SurvYrN[[x]]]~na.omit(SurveyYrs[[x]]),type="l",lty=x,lwd=1)
+legend("topleft",bty='n',c("Males","NMFS","BSFRF"),pch=c(NA,15,15),col=c(NA,"blue","red"))
+
+
+#==plot the BSFRF surveys 
+ cols<-c('red','blue')
+ offset_yr<-c(2009.05,2009.15)
+ points(snowad.rep[[1]]$"Observed industry survey mature biomass"[c(2,4)]~offset_yr,col=cols,pch=16)
+
+ ugh<-c(2,4)
+ for(j in 1:2)
+{ 
+  segments(x0=offset_yr[j],x1=offset_yr[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed industry survey mature biomass"))[ugh[j]]  /   exp(1.96*sqrt(log(1+study2009_cv[ugh[j]]^2))),
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed industry survey mature biomass"))[ugh[j]] * exp(1.96*sqrt(log(1+study2009_cv[ugh[j]]^2))),col=cols[j])
+ }
+ 
+ 
+  offset_yr<-c(2009.90,2009.95)
+ points(snowad.rep[[1]]$"Observed 2010 industry survey mature biomass"[c(2,4)]~offset_yr,col=cols,pch=16)
+
+ ugh<-c(2,4)
+ for(j in 1:2)
+{ 
+  segments(x0=offset_yr[j],x1=offset_yr[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed 2010 industry survey mature biomass"))[ugh[j]]  /   exp(1.96*sqrt(log(1+study2010_cv[ugh[j]]^2))),
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed 2010 industry survey mature biomass"))[ugh[j]] * exp(1.96*sqrt(log(1+study2010_cv[ugh[j]]^2))),col=cols[j])
+ }
+
+for(x in 1:length(Scenarios)) 
+for(j in 1:2)
+{
+lines(
+ c(snowad.rep[[x]]$"Predicted industry survey mature biomass"[ugh[j]], 
+   snowad.rep[[x]]$"Predicted 2010 industry survey mature biomass"[ugh[j]])~c(2009,2010),col=cols[j],lty=x)
+  
+}
+ 
+ 
+ 
+
+#==mature female biomass==============
+plot(as.numeric(unlist(snowad.rep[[2]]$"Observed survey female spawning biomass"))[1:SurvYrN[[2]]]~na.omit(SurveyYrs[[2]]),pch=20,ylab="Mature Female Biomass (1000 t)",xlab="Year",las=1,ylim=c(0,700));
+
+for(j in 1:length(SurveyYrs[[2]]))
+{
+ segments(x0=SurveyYrs[[2]][j],x1=na.omit(SurveyYrs[[2]])[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed survey female spawning biomass"))[j]  /   exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[1,]^2)))[j],
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed survey female spawning biomass"))[j] * exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[1,]^2)))[j])
+}
+
+for(x in 1:length(Scenarios))
+ lines(as.numeric(unlist(snowad.rep[[x]]$"Predicted Female survey mature Biomass"))[1:SurvYrN[[x]]]~na.omit(SurveyYrs[[x]]),type="l",lty=x,lwd=1)
+legend("topleft",bty='n',"Females")
+mtext(side=2,outer=T,text=c("Mature biomass at survey (1000 t)"),line=3)
+legend("topright",bty='n',lty=seq(1,length(Scenarios)),legend=ScenarioNames)
+
+
+#==NOW PLOT SUBSET==============
+plot(as.numeric(unlist(snowad.rep[[2]]$"Observed survey female spawning biomass"))[27:30]~na.omit(SurveyYrs[[2]][27:30]),pch=20,ylab="Mature Female Biomass (1000 t)",xlab="Year",las=1,ylim=c(0,200),yaxt='n')
+axis(side=4,las=1)
+
+for(j in 1:length(SurveyYrs[[2]]))
+{
+ segments(x0=SurveyYrs[[2]][j],x1=na.omit(SurveyYrs[[2]])[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed survey female spawning biomass"))[j]  /   exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[1,]^2)))[j],
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed survey female spawning biomass"))[j] * exp(1.96*sqrt(log(1+snowad.rep[[2]]$"survey CV"[1,]^2)))[j])
+}
+
+for(x in 1:length(Scenarios))
+ lines(as.numeric(unlist(snowad.rep[[x]]$"Predicted Female survey mature Biomass"))[1:SurvYrN[[x]]]~na.omit(SurveyYrs[[x]]),type="l",lty=x,lwd=1)
+legend("topleft",bty='n',c("Females","NMFS","BSFRF"),pch=c(NA,15,15),col=c(NA,"blue","red"))
+mtext(side=2,outer=T,text=c("Mature biomass at survey (1000 t)"),line=3)
+
+
+#==plot the BSFRF surveys 
+ cols<-c('red','blue')
+ offset_yr<-c(2009.1,2009.2)
+ points(snowad.rep[[1]]$"Observed industry survey mature biomass"[c(1,3)]~offset_yr,col=cols,pch=16)
+
+ ugh<-c(1,3)
+ for(j in 1:2)
+{ 
+  segments(x0=offset_yr[j],x1=offset_yr[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed industry survey mature biomass"))[ugh[j]]  /   exp(1.96*sqrt(log(1+study2009_cv[ugh[j]]^2))),
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed industry survey mature biomass"))[ugh[j]] * exp(1.96*sqrt(log(1+study2009_cv[ugh[j]]^2))),col=cols[j])
+ }
+ 
+ 
+  offset_yr<-c(2009.80,2009.9)
+ points(snowad.rep[[1]]$"Observed 2010 industry survey mature biomass"[c(1,3)]~offset_yr,col=cols,pch=16)
+
+ for(j in 1:2)
+{ 
+  segments(x0=offset_yr[j],x1=offset_yr[j],
+		y0=as.numeric(unlist(snowad.rep[[2]]$"Observed 2010 industry survey mature biomass"))[ugh[j]]  /   exp(1.96*sqrt(log(1+study2010_cv[ugh[j]]^2))),
+		y1=as.numeric(unlist(snowad.rep[[2]]$"Observed 2010 industry survey mature biomass"))[ugh[j]] * exp(1.96*sqrt(log(1+study2010_cv[ugh[j]]^2))),col=cols[j])
+ }
+
+for(x in 1:length(Scenarios)) 
+for(j in 1:2)
+{
+lines(
+ c(snowad.rep[[x]]$"Predicted industry survey mature biomass"[ugh[j]], 
+   snowad.rep[[x]]$"Predicted 2010 industry survey mature biomass"[ugh[j]])~c(2009,2010),col=cols[j],lty=x)
+  
+}
+
+ 
+ 
+```
+
+\newpage
+
+
+
+```{r,echo=FALSE,warning=FALSE,message=F,fig.width=8,fig.height=9,fig.cap="\\label{predfmort}Model predicted fishing mortalities and selectivities for all sources of mortality"}
+## estimated quanties
+# fishing mortality and fishery selectivities
+par(mfrow=c(3,2),mar=c(.1,.1,.3,.1),oma=c(4,5,2,4))
+plot(snowad.rep[[1]]$"estimated annual total fishing mortality"~RetCatchYrs[[1]], type="l",las=1,xaxt='n',xlim=c(min(unlist(RetCatchYrs)),max(unlist(RetCatchYrs))),ylim=c(0,4))
+for(x in 2:length(Scenarios))
+  lines(snowad.rep[[x]]$"estimated annual total fishing mortality"~RetCatchYrs[[x]],lty=x)
+legend("topright",bty='n',"Directed")
+
+# for(x in 2:length(Scenarios))
+#   print(snowad.rep[[x]]$"estimated annual total fishing mortality")
+
+
+plot(snowad.rep[[1]]$"selectivity fishery retained old male"[1,]~LengthBins[[1]],type='l',yaxt='n',xaxt='n')
+for(x in 2:length(Scenarios))
+  lines(snowad.rep[[x]]$"selectivity fishery retained old male"[1,]~LengthBins[[x]],lty=x)
+axis(side=4,las=1)
+for(x in 1:length(Scenarios))
+  {
+   lines(snowad.rep[[x]]$ "selectivity fishery total new male"[1,]~LengthBins[[x]],lty=x,col=2) 
+   }
+legend("topleft",col=c(2,1),bty='n',c("Total","Retained")) ## CHANGE THIS
+
+plot(snowad.rep[[1]]$"estimated annual fishing mortality trawl bycatch"~RetCatchYrs[[1]],type="l",las=1,xaxt='n',xlim=c(min(unlist(RetCatchYrs)),max(unlist(RetCatchYrs))))
+legend("topright",bty='n',"Trawl")
+for(x in 2:length(Scenarios))
+  lines(snowad.rep[[x]]$"estimated annual fishing mortality trawl bycatch"~RetCatchYrs[[x]],lty=x)
+plot(snowad.rep[[1]]$"selectivity trawl female"~LengthBins[[1]],type='l',yaxt='n',xaxt='n')
+for(x in 2:length(Scenarios))
+  lines(snowad.rep[[x]]$"selectivity trawl female"~LengthBins[[x]],lty=x)
+axis(side=4,las=1)
+legend("topleft",bty='n',lty=seq(1,length(Scenarios)),legend=ScenarioNames)
+
+plot(snowad.rep[[1]]$"estimated annual fishing mortality females pot"~RetCatchYrs[[1]], type="l",las=1,xlim=c(min(unlist(RetCatchYrs)),max(unlist(RetCatchYrs))))
+for(x in 2:length(Scenarios))
+  lines(snowad.rep[[x]]$"estimated annual fishing mortality females pot"~RetCatchYrs[[x]],lty=x)
+legend("topleft",bty='n',"Female discard")
+plot(snowad.rep[[1]]$"selectivity discard female"[1,]~LengthBins[[1]],type='l',yaxt='n')
+for(x in 2:length(Scenarios))
+  lines(snowad.rep[[x]]$"selectivity discard female"[1,]~LengthBins[[x]],lty=x)
+axis(side=4,las=1)
+
+mtext(side=2,outer=T,expression(y^-1),line=3.25)
+mtext(side=4,outer=T,"Probability",line=2.5)
+mtext(side=3,outer=T,"Estimated fishing mortality",adj=.1)
+mtext(side=3,outer=T,"Selectivity",adj=.8)
+mtext(side=1,outer=T,"Year",adj=.2,line=2)
+mtext(side=1,outer=T,"Length (mm)",adj=.8,line=2)
+
+```
+
+\newpage
+
+```{r,echo=FALSE,warning=FALSE,message=F}
+
+
+PlotTab<- data.frame(Model=ScenarioNames,
+                     MMB=rep(0,length(Scenarios)),
+                     B35=rep(0,length(Scenarios)),
+                     F35=rep(0,length(Scenarios)),
+                     FOFL=rep(0,length(Scenarios)),
+                     OFL=rep(0,length(Scenarios)), 
+                     Status=rep(0,length(Scenarios)))
+                     
+for(x in 1:length(MgmtQuants))
+  {
+   PlotTab$MMB[x]<-MMB[[x]]
+   PlotTab$B35[x]<-B35[[x]]
+   PlotTab$F35[x]<-F35[[x]]
+   PlotTab$FOFL[x]<-FOFL[[x]]
+   PlotTab$OFL[x]<-OFL[[x]]
+   PlotTab$Status[x]<-Status[[x]]
+}
+
+rownames(PlotTab)<- NULL
+PlotTab[,c(2:6)]<-round(PlotTab[,c(2:6)],2)
+kable(PlotTab[,1:6],split.cells=c(25,rep(7,5)),justify=c("left",rep("center",5)),caption="\\label{stepchange}Changes in management quantities for each scenario considered. Reported management quantities are derived from maximum likelihood estimates.")
+
+
+```
+
+\newpage
+
